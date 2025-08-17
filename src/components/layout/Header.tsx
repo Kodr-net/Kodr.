@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth';
 import { 
   Code2, 
   Users, 
@@ -33,7 +33,7 @@ const navigation = [
 
 export function Header() {
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname === path;
@@ -47,7 +47,7 @@ export function Header() {
             <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
               <Code2 className="w-5 h-5 text-white" />
             </div>
-            <span className="font-jakarta font-bold text-xl">CodePlace</span>
+            <span className="font-jakarta font-bold text-xl">Kodr</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -88,20 +88,20 @@ export function Header() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="relative h-9 w-9 rounded-full focus-ring">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={user.avatar} alt={user.name} />
-                        <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
+                       <Avatar className="h-9 w-9">
+                         <AvatarImage src={profile?.avatar_url} alt={profile?.full_name} />
+                         <AvatarFallback>{profile?.full_name?.slice(0, 2).toUpperCase() || user.email?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56" align="end" forceMount>
-                    <div className="flex flex-col space-y-1 p-2">
-                      <p className="text-sm font-medium leading-none">{user.name}</p>
-                      <p className="text-xs leading-none text-foreground-muted">{user.email}</p>
-                      <Badge variant="secondary" className="w-fit mt-1 text-xs">
-                        {user.role === 'coder' ? 'Coder' : 'Hirer'}
-                      </Badge>
-                    </div>
+                     <div className="flex flex-col space-y-1 p-2">
+                       <p className="text-sm font-medium leading-none">{profile?.full_name || user.email}</p>
+                       <p className="text-xs leading-none text-foreground-muted">{user.email}</p>
+                       <Badge variant="secondary" className="w-fit mt-1 text-xs">
+                         {profile?.role === 'coder' ? 'Coder' : 'Hirer'}
+                       </Badge>
+                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link to="/profile" className="cursor-pointer">
@@ -116,7 +116,7 @@ export function Header() {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive">
+                    <DropdownMenuItem onClick={signOut} className="cursor-pointer text-destructive">
                       <LogOut className="mr-2 h-4 w-4" />
                       Log out
                     </DropdownMenuItem>

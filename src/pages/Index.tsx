@@ -60,7 +60,7 @@ const testimonials = [
   {
     name: 'Elena Rodriguez',
     role: 'E-commerce Owner',
-    content: 'Hired a full-stack developer who transformed my idea into reality. Highly recommend CodePlace.',
+    content: 'Hired a full-stack developer who transformed my idea into reality. Highly recommend Kodr.',
     rating: 5,
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=elena',
   },
@@ -173,7 +173,7 @@ export default function Index() {
       <section className="py-20 bg-surface">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-6">Why Choose CodePlace?</h2>
+            <h2 className="text-4xl font-bold mb-6">Why Choose Kodr?</h2>
             <p className="text-xl text-foreground-muted max-w-2xl mx-auto">
               We've built the most trusted marketplace for connecting hirers with talented developers.
             </p>
@@ -298,7 +298,7 @@ export default function Index() {
           </h2>
           <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
             Join thousands of successful projects. Whether you're hiring or looking for work, 
-            CodePlace is your trusted partner.
+            Kodr is your trusted partner.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" variant="secondary" asChild className="text-lg px-8 py-6">
@@ -319,10 +319,10 @@ export default function Index() {
               <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
                 <Code2 className="w-5 h-5 text-white" />
               </div>
-              <span className="font-jakarta font-bold text-xl">CodePlace</span>
+              <span className="font-jakarta font-bold text-xl">Kodr</span>
             </div>
             <div className="text-foreground-muted text-sm">
-              © 2024 CodePlace. All rights reserved.
+              © 2024 Kodr. All rights reserved.
             </div>
           </div>
         </div>

@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Check for existing session
-    const savedUser = localStorage.getItem('codeplace-user');
+    const savedUser = localStorage.getItem('kodr-user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     
     setUser(mockUser);
-    localStorage.setItem('codeplace-user', JSON.stringify(mockUser));
+    localStorage.setItem('kodr-user', JSON.stringify(mockUser));
     setIsLoading(false);
     return true;
   };
@@ -76,21 +76,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     
     setUser(newUser);
-    localStorage.setItem('codeplace-user', JSON.stringify(newUser));
+    localStorage.setItem('kodr-user', JSON.stringify(newUser));
     setIsLoading(false);
     return true;
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('codeplace-user');
+    localStorage.removeItem('kodr-user');
   };
 
   const updateUser = (updates: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
-      localStorage.setItem('codeplace-user', JSON.stringify(updatedUser));
+      localStorage.setItem('kodr-user', JSON.stringify(updatedUser));
     }
   };
 
