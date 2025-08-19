@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { useAuth } from '@/lib/auth';
 import { 
   Code2, 
@@ -74,15 +75,10 @@ export function Header() {
           <div className="flex items-center space-x-3">
             <ThemeToggle />
             
-            {user ? (
-              <>
-                {/* Notifications */}
-                <Button variant="ghost" size="sm" className="relative focus-ring">
-                  <Bell className="w-4 h-4" />
-                  <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs flex items-center justify-center bg-accent">
-                    3
-                  </Badge>
-                </Button>
+          {user ? (
+            <>
+              {/* Notifications */}
+              <NotificationCenter />
 
                 {/* User Menu */}
                 <DropdownMenu>
