@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '@/lib/auth';
+import { useState, useEffect, useRef, useCallback } from 'react';import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -74,106 +73,6 @@ const Messages = () => {
     }
   };
 
-  const fetchConversations = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('conversations')
-        .select(`
-          *,
-          conversation_participants(
-            user_id,
-            profiles(
-              id,
-              full_name,
-              avatar_url,
-              role
-            )
-          ),
-          messages!conversation_id(
-            id,
-            content,
-            created_at
-          )
-        `)
-        .or(`user_id.eq.${user.id},conversation_participants.user_id.eq.${user.id}`)
-        .order('updated_at', { ascending: false });
-
-      if (error) throw error;
-
-      setConversations(data || []);
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-      toast.error('Failed to load conversations');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMessages = async (conversationId: string) => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      // Check if user is a participant in this conversation
-      const { data: participantData, error: participantError } = await supabase
-        .from('conversation_participants')
-        .select('user_id')
-        .eq('conversation_id', conversationId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (participantError || !participantData) {
-        throw new Error('Not authorized to view this conversation');
-      }
-
-      // Load messages with sender info
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          content,
-          created_at,
-          sender_id,
-          conversation_id,
-          message_type,
-          profiles:profiles!messages_sender_id_fkey(
-            id,
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (messagesError) throw messagesError;
-
-      // Transform messages to match our Message type
-      const formattedMessages: Message[] = (messagesData || []).map((msg: any) => ({
-        id: msg.id,
-        content: msg.content,
-        created_at: msg.created_at,
-        sender_id: msg.sender_id,
-        conversation_id: msg.conversation_id,
-        message_type: msg.message_type || 'text',
-        sender: {
-          full_name: msg.profiles?.full_name || 'Unknown User',
-          avatar_url: msg.profiles?.avatar_url || null
-        }
-      }));
-
-      setMessages(formattedMessages);
-    } catch (error) {
-      console.error('Error loading messages:', error);
-      toast.error('Failed to load messages');
-      setMessages([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const selectConversation = (conversationId: string) => {
     setSelectedConversation(conversationId);
     navigate(`/messages?conversation=${conversationId}`, { replace: true });
@@ -232,115 +131,65 @@ const Messages = () => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Fetch conversations when user changes
-  useEffect(() => {
-    if (user) {
-      fetchConversations();
-    }
-  }, [user]);
-
-  const fetchMessage = async (messageId: string) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .select(`
-        *,
-        sender:profiles!messages_sender_id_fkey(full_name, avatar_url)
-      `)
-      .eq('id', messageId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching message:', error);
-      return;
-    }
-
-    setMessages(prev => [...prev, data as Message]);
-  };
-
   const fetchConversations = async () => {
     if (!user) return;
     
     setLoading(true);
     
     try {
-      // First, try to use the RPC function if it exists
       const { data, error } = await supabase
-        .from('conversation_participants')
+        .from('conversations')
         .select(`
-          conversation_id,
-          profiles!inner(
-            id,
-            full_name,
-            avatar_url,
-            role
-          ),
-          conversations!inner(
-            id,
-            project_id,
-            created_at,
-            updated_at,
-            messages!inner(
+          *,
+          conversation_participants(
+            user_id,
+            profiles(
               id,
-              content,
-              created_at,
-              sender_id,
-              profiles:profiles!messages_sender_id_fkey(
-                id,
-                full_name,
-                avatar_url
-              )
+              full_name,
+              avatar_url,
+              role
+            )
+          ),
+          messages!conversation_id(
+            id,
+            content,
+            created_at,
+            sender_id,
+            conversation_id,
+            message_type,
+            profiles:profiles!messages_sender_id_fkey(
+              id,
+              full_name,
+              avatar_url
             )
           )
         `)
-        .eq('user_id', user.id)
-        .order('created_at', { foreignTable: 'conversations.messages', ascending: false });
+        .or(`user_id.eq.${user.id},conversation_participants.user_id.eq.${user.id}`);
         
       if (error) throw error;
-
-      // Transform the data to match our Conversation type
-      const transformedConversations = (data || []).map((cp: any) => {
-        const conversation = cp.conversations;
-        const otherParticipants = (conversation?.conversation_participants || [])
-          .filter((p: any) => p.user_id !== user?.id);
-          
-        return {
-          id: conversation.id,
-          project_id: conversation.project_id,
-          created_at: conversation.created_at,
-          updated_at: conversation.updated_at || conversation.created_at,
-          conversation_participants: [
-            {
-              user_id: user.id,
-              profiles: {
-                full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'You',
-                avatar_url: user.user_metadata?.avatar_url,
-                role: 'coder'
-              }
-            },
-            ...otherParticipants.map((p: any) => ({
-              user_id: p.user_id,
-              profiles: {
-                full_name: p.profiles?.full_name || 'Unknown User',
-                avatar_url: p.profiles?.avatar_url,
-                role: p.profiles?.role || 'coder'
-              }
-            }))
-          ],
-          messages: conversation.messages?.map((m: any) => ({
-            id: m.id,
-            content: m.content,
-            created_at: m.created_at,
-            sender_id: m.sender_id,
-            conversation_id: conversation.id,
-            sender: {
-              full_name: m.profiles?.full_name || 'Unknown User',
-              avatar_url: m.profiles?.avatar_url
-            }
-          })) || []
-        };
-      });
-
-      setConversations(transformedConversations);
+      
+      // Transform the data to match the Conversation type
+      const transformedData: Conversation[] = (data || []).map(conv => ({
+        ...conv,
+        conversation_participants: conv.conversation_participants?.map(p => ({
+          user_id: p.user_id,
+          profiles: {
+            full_name: p.profiles?.full_name || 'Unknown User',
+            avatar_url: p.profiles?.avatar_url || null,
+            role: p.profiles?.role || 'coder'
+          }
+        })) || [],
+        messages: (conv.messages || []).map(msg => ({
+          ...msg,
+          message_type: msg.message_type || 'text',
+          sender: {
+            full_name: msg.profiles?.full_name || 'Unknown User',
+            avatar_url: msg.profiles?.avatar_url || null
+          }
+        }))
+      }));
+      
+      setConversations(transformedData);
     } catch (error) {
       console.error('Error fetching conversations:', error);
       toast.error('Failed to load conversations');
@@ -412,90 +261,13 @@ const Messages = () => {
     } catch (error) {
       console.error('Error loading messages:', error);
       toast.error('Failed to load messages');
+      setMessages([]);
     } finally {
       setLoading(false);
-          sender: {
-            full_name: m.profiles?.full_name || 'Unknown User',
-            avatar_url: m.profiles?.avatar_url
-          }
-        })) || []
-      };
-    });
-
-    setConversations(transformedConversations);
-  } catch (error) {
-    console.error('Error fetching conversations:', error);
-    toast.error('Failed to load conversations');
-  } finally {
-    setLoading(false);
-  }
-};
-
-const loadMessages = async (conversationId: string) => {
-  if (!user) {
-    toast.error('Please sign in to view messages');
-    return;
-  }
-  
-  try {
-    setLoading(true);
-    
-    // First verify the user has access to this conversation
-    const { data: participantData, error: participantError } = await supabase
-      .from('conversation_participants')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .eq('user_id', user.id)
-      .single();
-        
-    if (participantError || !participantData) {
-      console.error('Not authorized to access this conversation');
-      toast.error('You do not have permission to view this conversation');
-      navigate('/messages'); // Redirect to messages list
-      return;
     }
+  };
 
-    // If authorized, fetch messages with sender info
-    const { data: messagesData, error: messagesError } = await supabase
-      .from('messages')
-      .select(`
-        id,
-        content,
-        created_at,
-        sender_id,
-        conversation_id,
-        message_type,
-        profiles:profiles!messages_sender_id_fkey(
-          id,
-          full_name,
-          avatar_url
-        )
-      `)
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
-
-    if (messagesError) throw messagesError;
-
-    // Transform messages to match our Message type
-    const formattedMessages: Message[] = (messagesData || []).map((msg: any) => ({
-      id: msg.id,
-      content: msg.content,
-      created_at: msg.created_at,
-      sender_id: msg.sender_id,
-      conversation_id: msg.conversation_id,
-      message_type: msg.message_type || 'text',
-      sender: {
-        full_name: msg.profiles?.full_name || 'Unknown User',
-        avatar_url: msg.profiles?.avatar_url || null
-      }
-    }));
-
-    setMessages(formattedMessages);
-  } catch (error) {
-    console.error('Error loading messages:', error);
-    toast.error('Failed to load messages');
-
-const sendMessage = async (e?: React.FormEvent) => {
+  const sendMessage = async (e?: React.FormEvent) => {
   e?.preventDefault();
   if (!newMessage.trim() || !selectedConversation || !user) return;
 
