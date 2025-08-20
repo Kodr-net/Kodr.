@@ -29,6 +29,7 @@ const Projects = () => {
   const { user, profile } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [myProjects, setMyProjects] = useState<Project[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
@@ -37,6 +38,8 @@ const Projects = () => {
       fetchProjects();
       if (profile?.role === 'hirer') {
         fetchMyProjects();
+      } else if (profile?.role === 'coder') {
+        fetchMyApplications();
       }
     }
   }, [user, profile]);
@@ -160,7 +163,14 @@ const Projects = () => {
                   Edit
                 </Button>
               )}
-              <Button size="sm">
+              <Button 
+                size="sm" 
+                onClick={() => {
+                  if (profile?.role === 'coder') {
+                    handleApplyToProject(project.id);
+                  }
+                }}
+              >
                 {profile?.role === 'coder' ? 'Apply' : 'View Details'}
               </Button>
             </div>
@@ -169,6 +179,68 @@ const Projects = () => {
       </CardContent>
     </Card>
   );
+
+  const handleApplyToProject = async (projectId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('project_applications')
+      .insert({
+        project_id: projectId,
+        coder_id: user.id,
+        message: 'I would like to apply for this project.'
+      });
+
+    if (error) {
+      if (error.code === '23505') {
+        toast.error('You have already applied to this project');
+      } else {
+        toast.error('Failed to apply to project');
+      }
+      return;
+    }
+
+    toast.success('Application submitted successfully');
+    fetchProjects();
+  };
+
+  const fetchMyApplications = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('project_applications')
+      .select(`
+        *,
+        projects(title, hirer:profiles!projects_hirer_id_fkey(full_name))
+      `)
+      .eq('coder_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching applications:', error);
+      return;
+    }
+
+    setApplications(data || []);
+  };
+
+  const fetchProjectApplications = async (projectId: string) => {
+    const { data, error } = await supabase
+      .from('project_applications')
+      .select(`
+        *,
+        coder:profiles!project_applications_coder_id_fkey(*)
+      `)
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching project applications:', error);
+      return [];
+    }
+
+    return data || [];
+  };
 
   if (!user) {
     return (
@@ -219,10 +291,13 @@ const Projects = () => {
         </div>
 
         <Tabs defaultValue="browse" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={`grid w-full ${profile?.role === 'hirer' ? 'grid-cols-2' : profile?.role === 'coder' ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="browse">Browse Projects</TabsTrigger>
             {profile?.role === 'hirer' && (
               <TabsTrigger value="my-projects">My Projects</TabsTrigger>
+            )}
+            {profile?.role === 'coder' && (
+              <TabsTrigger value="my-applications">My Applications</TabsTrigger>
             )}
           </TabsList>
 
@@ -278,6 +353,48 @@ const Projects = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {myProjects.map((project) => (
                     <ProjectCard key={project.id} project={project} showActions />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          )}
+
+          {profile?.role === 'coder' && (
+            <TabsContent value="my-applications" className="mt-6">
+              {applications.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-foreground-muted mb-4">You haven't applied to any projects yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {applications.map((application) => (
+                    <Card key={application.id}>
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg mb-2">
+                              {application.projects.title}
+                            </h3>
+                            <p className="text-sm text-foreground-muted mb-2">
+                              by {application.projects.hirer.full_name}
+                            </p>
+                            <p className="text-foreground-muted mb-4">
+                              {application.message}
+                            </p>
+                            <p className="text-xs text-foreground-muted">
+                              Applied {new Date(application.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <Badge className={
+                            application.status === 'pending' ? 'bg-warning text-warning-foreground' :
+                            application.status === 'accepted' ? 'bg-success text-success-foreground' :
+                            'bg-destructive text-destructive-foreground'
+                          }>
+                            {application.status}
+                          </Badge>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               )}

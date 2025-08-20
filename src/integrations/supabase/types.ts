@@ -290,6 +290,36 @@ export type Database = {
         }
         Relationships: []
       }
+      project_applications: {
+        Row: {
+          coder_id: string
+          created_at: string
+          id: string
+          message: string | null
+          project_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          coder_id: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          project_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          coder_id?: string
+          created_at?: string
+          id?: string
+          message?: string | null
+          project_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       project_skills: {
         Row: {
           id: string
