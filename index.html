@@ -7,22 +7,45 @@
     <meta name="description" content="Professional curated marketplace connecting hirers with skilled coders and teams. Build your ideas with confidence." />
     <meta name="author" content="Kodr" />
     
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.ico" />
+    
     <!-- Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <meta property="og:title" content="project-pair-place" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <!-- Open Graph / Social Media Meta Tags -->
+    <meta property="og:title" content="Kodr - Hire Top Coders & Teams" />
+    <meta property="og:description" content="Find and hire the best developers and teams for your next project" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:url" content="https://kodr.app" />
+    <meta property="og:image" content="/og-image.jpg" />
 
+    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:title" content="Kodr - Hire Top Coders & Teams" />
+    <meta name="twitter:description" content="Find and hire the best developers and teams for your next project" />
+    <meta name="twitter:image" content="/twitter-image.jpg" />
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#2563eb" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/site.webmanifest" />
   </head>
 
-  <body>
+  <body class="min-h-screen bg-background text-foreground">
+    <noscript>
+      <div class="p-4 text-center">
+        <h1 class="text-2xl font-bold mb-2">JavaScript is disabled</h1>
+        <p>Please enable JavaScript to use Kodr.</p>
+      </div>
+    </noscript>
+    
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

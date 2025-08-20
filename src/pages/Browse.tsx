@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/lib/auth';
-import { Search, Star, Users, MessageSquare, MapPin, Clock, UserPlus } from 'lucide-react';
+import { Search, Star, Users, MessageSquare, MapPin, Clock, UserPlus, UserCheck } from 'lucide-react';
+import { toast } from 'sonner';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Team = Database['public']['Tables']['teams']['Row'] & {
@@ -22,10 +23,12 @@ type Team = Database['public']['Tables']['teams']['Row'] & {
 };
 
 const Browse = () => {
-  const [coders, setCoders] = useState<Profile[]>([]);
+  const [coders, setCoders] = useState<Array<Profile & { user_skills?: any[]; is_following?: boolean }>>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('coders');
+  const [followStatus, setFollowStatus] = useState<Record<string, boolean>>({});
   const [skillFilter, setSkillFilter] = useState('all');
   const { user } = useAuth();
 
@@ -77,24 +80,158 @@ const Browse = () => {
     }
   };
 
+  const startChat = async (userId: string) => {
+    if (!user) {
+      toast.error('Please sign in to start a chat');
+      return;
+    }
+    
+    try {
+      // Check if conversation already exists between users
+      const { data: existingConvos, error: convosError } = await supabase
+        .from('conversation_participants')
+        .select('conversation_id')
+        .in('user_id', [user.id, userId])
+        .not('conversation_id', 'is', null);
+
+      if (convosError) throw convosError;
+
+      // Find common conversation ID
+      const conversationCounts = (existingConvos || []).reduce((acc, curr) => {
+        acc[curr.conversation_id] = (acc[curr.conversation_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const existingConversationId = Object.entries(conversationCounts)
+        .find(([_, count]) => count >= 2)?.[0];
+
+      if (existingConversationId) {
+        // Navigate to existing conversation
+        window.location.href = `/messages?conversation=${existingConversationId}`;
+        return;
+      }
+
+      // Create new conversation
+      const { data: newConversation, error: createError } = await supabase
+        .from('conversations')
+        .insert({})
+        .select('id')
+        .single();
+
+      if (createError || !newConversation) throw createError || new Error('Failed to create conversation');
+
+      // Add participants
+      const { error: participantError } = await supabase
+        .from('conversation_participants')
+        .insert([
+          { conversation_id: newConversation.id, user_id: user.id },
+          { conversation_id: newConversation.id, user_id: userId }
+        ]);
+
+      if (participantError) throw participantError;
+
+      // Navigate to new conversation
+      window.location.href = `/messages?conversation=${newConversation.id}`;
+      
+    } catch (error) {
+      console.error('Error starting chat:', error);
+      toast.error('Failed to start chat. Please try again.');
+    }
+  };
+
   const handleFollow = async (profileId: string) => {
     if (!user) return;
     
+    // Store current state for potential rollback
+    const wasFollowing = followStatus[profileId];
+    const previousCoders = [...coders];
+    
     try {
-      const { error } = await supabase
-        .from('follows')
-        .insert({
-          follower_id: user.id,
-          following_id: profileId
-        });
-
+      // Optimistic update
+      setFollowStatus(prev => ({
+        ...prev,
+        [profileId]: !wasFollowing
+      }));
+      
+      // Update the followers count optimistically without re-sorting
+      setCoders(prevCoders => 
+        prevCoders.map(coder => 
+          coder.id === profileId 
+            ? { 
+                ...coder, 
+                followers_count: wasFollowing 
+                  ? Math.max(0, (coder.followers_count || 0) - 1)
+                  : (coder.followers_count || 0) + 1
+              } 
+            : coder
+        )
+      );
+      
+      // Make the API call
+      const { error } = wasFollowing
+        ? await supabase
+            .from('follows')
+            .delete()
+            .eq('follower_id', user.id)
+            .eq('following_id', profileId)
+        : await supabase
+            .from('follows')
+            .insert({
+              follower_id: user.id,
+              following_id: profileId
+            });
+      
       if (error) throw error;
-      // Refresh data to show updated follow count
-      fetchCoders();
+      
+      // Only fetch fresh data after a short delay to allow the UI to update smoothly
+      setTimeout(() => {
+        fetchCoders();
+      }, 300);
+      
     } catch (error) {
-      console.error('Error following user:', error);
+      console.error('Error updating follow status:', error);
+      
+      // Revert to previous state on error
+      setFollowStatus(prev => ({
+        ...prev,
+        [profileId]: wasFollowing
+      }));
+      
+      setCoders(previousCoders);
+      
+      toast.error(`Failed to ${wasFollowing ? 'unfollow' : 'follow'} user`);
     }
   };
+
+  // Fetch initial follow status for each coder
+  useEffect(() => {
+    const fetchFollowStatus = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', user.id);
+          
+        if (!error && data) {
+          const statusMap = data.reduce((acc, { following_id }) => ({
+            ...acc,
+            [following_id]: true
+          }), {});
+          
+          setFollowStatus(prev => ({
+            ...prev,
+            ...statusMap
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching follow status:', error);
+      }
+    };
+    
+    fetchFollowStatus();
+  }, [user]);
 
   const CoderCard = ({ coder }: { coder: Profile & { user_skills?: any[] } }) => (
     <Card className="hover:shadow-md transition-shadow">
@@ -162,18 +299,39 @@ const Browse = () => {
 
         <div className="flex space-x-2">
           <Button 
-            variant="outline" 
+            variant={followStatus[coder.id] ? "default" : "outline"} 
             size="sm" 
             className="flex-1"
-            onClick={() => handleFollow(coder.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleFollow(coder.id);
+            }}
             disabled={!user}
           >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Follow
+            {followStatus[coder.id] ? (
+              <>
+                <UserCheck className="w-4 h-4 mr-2" />
+                Following
+              </>
+            ) : (
+              <>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Follow
+              </>
+            )}
           </Button>
-          <Button size="sm" className="flex-1" disabled={!user}>
+          <Button 
+            size="sm" 
+            className="flex-1" 
+            variant="outline"
+            disabled={!user}
+            onClick={(e) => {
+              e.stopPropagation();
+              startChat(coder.id);
+            }}
+          >
             <MessageSquare className="w-4 h-4 mr-2" />
-            Chat
+            Message
           </Button>
         </div>
       </CardContent>
@@ -287,12 +445,30 @@ const Browse = () => {
           <TabsContent value="coders">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {coders
-                .filter(coder => 
-                  searchTerm === '' || 
-                  coder.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  coder.bio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  coder.location?.toLowerCase().includes(searchTerm.toLowerCase())
-                )
+                .filter(coder => {
+                  // Search term filter
+                  const matchesSearch = 
+                    coder.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    coder.bio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    coder.location?.toLowerCase().includes(searchTerm.toLowerCase());
+                  
+                  // Skill filter
+                  const matchesSkill = skillFilter === 'all' || 
+                    coder.user_skills?.some(skill => 
+                      skill.skills.name.toLowerCase() === skillFilter.toLowerCase()
+                    );
+                  
+                  return matchesSearch && matchesSkill;
+                })
+                // Sort by XP (descending) and then by followers count (descending)
+                .sort((a, b) => {
+                  // If XP is different, sort by XP (higher first)
+                  if (b.xp !== a.xp) {
+                    return (b.xp || 0) - (a.xp || 0);
+                  }
+                  // If XP is the same, sort by followers count (higher first)
+                  return (b.followers_count || 0) - (a.followers_count || 0);
+                })
                 .map((coder) => (
                   <CoderCard key={coder.id} coder={coder} />
                 ))}
